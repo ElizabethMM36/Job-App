@@ -1,130 +1,112 @@
-import { Application } from "../models/application.model.js";
-import { Job } from "../models/job.model.js";
+import db from "../utils/db.js";
 
 export const applyJob = async (req, res) => {
     try {
-        const userId = req.id;
-        const jobId = req.params.id;
-        if (!jobId) {
-            return res.status(400).json({
-                message: "Job id is required.",
-                success: false
-            })
-        };
-        // check if the user has already applied for the job
-        const existingApplication = await Application.findOne({ job: jobId, applicant: userId });
+        const userId = req.id; // Authenticated user ID
+        const { id: jobId } = req.params;
+        const { resume, coverLetter } = req.body;
 
-        if (existingApplication) {
-            return res.status(400).json({
-                message: "You have already applied for this jobs",
-                success: false
-            });
+        if (!resume || !coverLetter) {
+            return res.status(400).json({ message: "Resume and cover letter are required", success: false });
         }
 
-        // check if the jobs exists
-        const job = await Job.findById(jobId);
-        if (!job) {
-            return res.status(404).json({
-                message: "Job not found",
-                success: false
-            })
+        // Check if the job exists
+        const [job] = await db.execute("SELECT * FROM jobs WHERE id = ?", [jobId]);
+        if (job.length === 0) {
+            return res.status(404).json({ message: "Job not found", success: false });
         }
-        // create a new application
-        const newApplication = await Application.create({
-            job:jobId,
-            applicant:userId,
-        });
 
-        job.applications.push(newApplication._id);
-        await job.save();
-        return res.status(201).json({
-            message:"Job applied successfully.",
-            success:true
-        })
+        // Check if user has already applied
+        const [existingApplication] = await db.execute(
+            "SELECT * FROM applications WHERE userId = ? AND jobId = ?", 
+            [userId, jobId]
+        );
+        if (existingApplication.length > 0) {
+            return res.status(400).json({ message: "You have already applied for this job", success: false });
+        }
+
+        // Insert application into the database
+        await db.execute(
+            "INSERT INTO applications (userId, jobId, resume, coverLetter, status) VALUES (?, ?, ?, ?, ?)", 
+            [userId, jobId, resume, coverLetter, "Pending"]
+        );
+
+        return res.status(201).json({ message: "Job application submitted successfully", success: true });
     } catch (error) {
-        console.log(error);
+        console.error(error);
+        res.status(500).json({ message: "Server error", success: false });
     }
 };
-export const getAppliedJobs = async (req,res) => {
+
+export const getAppliedJobs = async (req, res) => {
     try {
-        const userId = req.id;
-        const application = await Application.find({applicant:userId}).sort({createdAt:-1}).populate({
-            path:'job',
-            options:{sort:{createdAt:-1}},
-            populate:{
-                path:'company',
-                options:{sort:{createdAt:-1}},
-            }
-        });
-        if(!application){
-            return res.status(404).json({
-                message:"No Applications",
-                success:false
-            })
-        };
-        return res.status(200).json({
-            application,
-            success:true
-        })
+        const userId = req.id; // Authenticated user ID
+
+        // Fetch jobs the user has applied for
+        const [applications] = await db.execute(
+            `SELECT jobs.*, applications.status 
+            FROM applications 
+            JOIN jobs ON applications.jobId = jobs.id 
+            WHERE applications.userId = ? 
+            ORDER BY applications.createdAt DESC`, 
+            [userId]
+        );
+
+        return res.status(200).json({ appliedJobs: applications, success: true });
     } catch (error) {
-        console.log(error);
+        console.error(error);
+        res.status(500).json({ message: "Server error", success: false });
     }
-}
-// admin dekhega kitna user ne apply kiya hai
-export const getApplicants = async (req,res) => {
+};
+
+export const getApplicants = async (req, res) => {
     try {
-        const jobId = req.params.id;
-        const job = await Job.findById(jobId).populate({
-            path:'applications',
-            options:{sort:{createdAt:-1}},
-            populate:{
-                path:'applicant'
-            }
-        });
-        if(!job){
-            return res.status(404).json({
-                message:'Job not found.',
-                success:false
-            })
-        };
-        return res.status(200).json({
-            job, 
-            succees:true
-        });
+        const { id: jobId } = req.params;
+
+        // Check if the job exists
+        const [job] = await db.execute("SELECT * FROM jobs WHERE id = ?", [jobId]);
+        if (job.length === 0) {
+            return res.status(404).json({ message: "Job not found", success: false });
+        }
+
+        // Fetch applicants for the job
+        const [applicants] = await db.execute(
+            `SELECT users.id, users.fullname, users.email, users.phoneNumber, applications.resume, applications.coverLetter, applications.status 
+            FROM applications 
+            JOIN users ON applications.userId = users.id 
+            WHERE applications.jobId = ? 
+            ORDER BY applications.createdAt DESC`, 
+            [jobId]
+        );
+
+        return res.status(200).json({ applicants, success: true });
     } catch (error) {
-        console.log(error);
+        console.error(error);
+        res.status(500).json({ message: "Server error", success: false });
     }
-}
-export const updateStatus = async (req,res) => {
+};
+
+export const updateStatus = async (req, res) => {
     try {
-        const {status} = req.body;
-        const applicationId = req.params.id;
-        if(!status){
-            return res.status(400).json({
-                message:'status is required',
-                success:false
-            })
-        };
+        const { id: applicationId } = req.params;
+        const { status } = req.body;
 
-        // find the application by applicantion id
-        const application = await Application.findOne({_id:applicationId});
-        if(!application){
-            return res.status(404).json({
-                message:"Application not found.",
-                success:false
-            })
-        };
+        if (!status) {
+            return res.status(400).json({ message: "Status is required", success: false });
+        }
 
-        // update the status
-        application.status = status.toLowerCase();
-        await application.save();
+        // Check if the application exists
+        const [application] = await db.execute("SELECT * FROM applications WHERE id = ?", [applicationId]);
+        if (application.length === 0) {
+            return res.status(404).json({ message: "Application not found", success: false });
+        }
 
-        return res.status(200).json({
-            message:"Status updated successfully.",
-            success:true
-        });
+        // Update the application status
+        await db.execute("UPDATE applications SET status = ? WHERE id = ?", [status, applicationId]);
 
+        return res.status(200).json({ message: "Application status updated successfully", success: true });
     } catch (error) {
-        console.log(error);
+        console.error(error);
+        res.status(500).json({ message: "Server error", success: false });
     }
-}
+};

@@ -12,8 +12,12 @@ import { toast } from 'sonner'
 
 const Navbar = () => {
     const { user } = useSelector(store => store.auth);
+    console.log("User from Redux store:", user);  
+
+    
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    
 
     const logoutHandler = async () => {
         try {
@@ -79,7 +83,7 @@ const Navbar = () => {
                                         </div>
                                         <div className='flex flex-col my-2 text-gray-600'>
                                             {
-                                                user && user.role === 'student' && (
+                                                user && user.role === 'jobseeker' && (
                                                     <div className='flex w-fit items-center gap-2 cursor-pointer'>
                                                         <User2 />
                                                         <Button variant="link"> <Link to="/profile">View Profile</Link></Button>

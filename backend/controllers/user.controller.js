@@ -1,171 +1,153 @@
-import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import db from "../utils/db.js"; // MySQL database connection
 import getDataUri from "../utils/datauri.js";
 import cloudinary from "../utils/cloudinary.js";
 
 export const register = async (req, res) => {
     try {
-        const { fullname, email, phoneNumber, password, role } = req.body;
-         
-        if (!fullname || !email || !phoneNumber || !password || !role) {
-            return res.status(400).json({
-                message: "Something is missing",
-                success: false
-            });
-        };
-        const file = req.file;
-        const fileUri = getDataUri(file);
-        const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+        console.log("📌 Incoming request data:", req.body);
+        console.log("📌 Uploaded file:", req.file);
 
-        const user = await User.findOne({ email });
-        if (user) {
-            return res.status(400).json({
-                message: 'User already exist with this email.',
-                success: false,
-            })
+        const { fullname, email, phoneNumber, password, role } = req.body;
+        
+        // Check for missing fields
+        if (!fullname || !email || !phoneNumber || !password || !role) {
+            console.log("⚠️ Missing fields detected");
+            return res.status(400).json({ message: "Missing fields", success: false });
         }
+
+        // Check if user exists
+        const [existingUser] = await db.execute("SELECT * FROM users WHERE email = ?", [email]);
+        console.log("📌 Existing user check:", existingUser);
+
+        if (existingUser.length > 0) {
+            console.log("⚠️ User already exists");
+            return res.status(400).json({ message: "User already exists", success: false });
+        }
+
+        // Hash password
+        console.log("🔐 Hashing password...");
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        await User.create({
-            fullname,
-            email,
-            phoneNumber,
-            password: hashedPassword,
-            role,
-            profile:{
-                profilePhoto:cloudResponse.secure_url,
+        // Upload profile photo (if provided)
+        let profilePhotoUrl = "";
+        if (req.file) {
+            try {
+                console.log("📸 Processing profile photo...");
+                const fileUri = getDataUri(req.file);
+                const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+                profilePhotoUrl = cloudResponse.secure_url;
+                console.log("✅ Cloudinary upload success:", profilePhotoUrl);
+            } catch (uploadError) {
+                console.error("❌ Cloudinary upload failed:", uploadError);
+                return res.status(500).json({ message: "Profile photo upload failed", success: false });
             }
-        });
+        }
 
-        return res.status(201).json({
-            message: "Account created successfully.",
-            success: true
-        });
+        // Insert user into database
+        console.log("📌 Inserting new user into database...");
+        await db.execute(
+            "INSERT INTO users (fullname, email, phoneNumber, password, role, profilePhoto) VALUES (?, ?, ?, ?, ?, ?)", 
+            [fullname, email, phoneNumber, hashedPassword, role, profilePhotoUrl]
+        );
+
+        console.log("✅ User registered successfully!");
+        return res.status(201).json({ message: "User registered successfully", success: true });
     } catch (error) {
-        console.log(error);
+        console.error("❌ Server error:", error);
+        res.status(500).json({ message: "Server error", success: false, error: error.message });
     }
-}
+};
+
+
 export const login = async (req, res) => {
     try {
         const { email, password, role } = req.body;
-        
         if (!email || !password || !role) {
-            return res.status(400).json({
-                message: "Something is missing",
-                success: false
-            });
-        };
-        let user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({
-                message: "Incorrect email or password.",
-                success: false,
-            })
+            return res.status(400).json({ message: "Missing fields", success: false });
         }
+
+        // Find user
+        const [users] = await db.execute("SELECT * FROM users WHERE email = ?", [email]);
+        if (users.length === 0) {
+            return res.status(400).json({ message: "Invalid email or password", success: false });
+        }
+
+        const user = users[0];
+
+        // Check password
         const isPasswordMatch = await bcrypt.compare(password, user.password);
-        if (!isPasswordMatch) {
-            return res.status(400).json({
-                message: "Incorrect email or password.",
-                success: false,
-            })
-        };
-        // check role is correct or not
-        if (role !== user.role) {
-            return res.status(400).json({
-                message: "Account doesn't exist with current role.",
-                success: false
-            })
-        };
-
-        const tokenData = {
-            userId: user._id
-        }
-        const token = await jwt.sign(tokenData, process.env.SECRET_KEY, { expiresIn: '1d' });
-
-        user = {
-            _id: user._id,
-            fullname: user.fullname,
-            email: user.email,
-            phoneNumber: user.phoneNumber,
-            role: user.role,
-            profile: user.profile
+        if (!isPasswordMatch || role !== user.role) {
+            return res.status(400).json({ message: "Invalid credentials", success: false });
         }
 
-        return res.status(200).cookie("token", token, { maxAge: 1 * 24 * 60 * 60 * 1000, httpsOnly: true, sameSite: 'strict' }).json({
-            message: `Welcome back ${user.fullname}`,
-            user,
-            success: true
-        })
+        // Generate JWT token
+        const token = jwt.sign({ userId: user.id }, process.env.SECRET_KEY, { expiresIn: "1d" });
+
+        return res.status(200).cookie("token", token, { httpOnly: true, sameSite: "strict" }).json({
+            message: `Welcome back, ${user.fullname}`,
+            success: true,
+            user: { id: user.id, fullname: user.fullname, email: user.email, role: user.role }
+        });
     } catch (error) {
-        console.log(error);
+        console.error(error);
+        res.status(500).json({ message: "Server error", success: false });
     }
-}
-export const logout = async (req, res) => {
-    try {
-        return res.status(200).cookie("token", "", { maxAge: 0 }).json({
-            message: "Logged out successfully.",
-            success: true
-        })
-    } catch (error) {
-        console.log(error);
-    }
-}
+};
+
+export const logout = (req, res) => {
+    return res.status(200).cookie("token", "", { maxAge: 0 }).json({ message: "Logged out successfully", success: true });
+};
 export const updateProfile = async (req, res) => {
     try {
         const { fullname, email, phoneNumber, bio, skills } = req.body;
-        
-        const file = req.file;
-        // cloudinary ayega idhar
-        const fileUri = getDataUri(file);
-        const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+        const userId = req.id; // Middleware authentication extracts user ID
 
+        let skillsArray = skills ? skills.split(",") : [];
 
+        // Fetch user from the database
+        const [users] = await db.execute("SELECT * FROM users WHERE id = ?", [userId]);
 
-        let skillsArray;
-        if(skills){
-            skillsArray = skills.split(",");
-        }
-        const userId = req.id; // middleware authentication
-        let user = await User.findById(userId);
-
-        if (!user) {
+        if (users.length === 0) {
             return res.status(400).json({
                 message: "User not found.",
                 success: false
-            })
-        }
-        // updating data
-        if(fullname) user.fullname = fullname
-        if(email) user.email = email
-        if(phoneNumber)  user.phoneNumber = phoneNumber
-        if(bio) user.profile.bio = bio
-        if(skills) user.profile.skills = skillsArray
-      
-        // resume comes later here...
-        if(cloudResponse){
-            user.profile.resume = cloudResponse.secure_url // save the cloudinary url
-            user.profile.resumeOriginalName = file.originalname // Save the original file name
+            });
         }
 
+        let profilePhotoUrl = users[0].profilePhoto; // Keep existing photo unless updated
 
-        await user.save();
-
-        user = {
-            _id: user._id,
-            fullname: user.fullname,
-            email: user.email,
-            phoneNumber: user.phoneNumber,
-            role: user.role,
-            profile: user.profile
+        // If a file is uploaded, upload it to Cloudinary
+        if (req.file) {
+            const fileUri = getDataUri(req.file);
+            const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+            profilePhotoUrl = cloudResponse.secure_url;
         }
+
+        // Update user data in MySQL
+        await db.execute(
+            `UPDATE users 
+             SET fullname = ?, email = ?, phoneNumber = ?, bio = ?, skills = ?, profilePhoto = ? 
+             WHERE id = ?`,
+            [fullname, email, phoneNumber, bio, skillsArray.join(","), profilePhotoUrl, userId]
+        );
+
+        // Fetch updated user details
+        const [updatedUsers] = await db.execute("SELECT * FROM users WHERE id = ?", [userId]);
 
         return res.status(200).json({
-            message:"Profile updated successfully.",
-            user,
-            success:true
-        })
+            message: "Profile updated successfully.",
+            user: updatedUsers[0],
+            success: true
+        });
+
     } catch (error) {
-        console.log(error);
+        console.error(error);
+        return res.status(500).json({
+            message: "Server error",
+            success: false
+        });
     }
-}
+};
+

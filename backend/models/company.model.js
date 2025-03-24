@@ -1,27 +1,21 @@
-import mongoose from "mongoose";
+import pool from "../utils/db.js";
 
-const companySchema = new mongoose.Schema({
-    name:{
-        type:String,
-        required:true,
-        unique:true
-    },
-    description:{
-        type:String, 
-    },
-    website:{
-        type:String 
-    },
-    location:{
-        type:String 
-    },
-    logo:{
-        type:String // URL to company logo
-    },
-    userId:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:'User',
-        required:true
-    }
-},{timestamps:true})
-export const Company = mongoose.model("Company", companySchema);
+export const createCompany = async (name, userId) => {
+    return new Promise((resolve, reject) => {
+        const sql = `INSERT INTO companies (name, userId) VALUES (?, ?)`;
+        pool.query(sql, [name, userId], (err, results) => {
+            if (err) reject(err);
+            resolve(results);
+        });
+    });
+};
+
+export const getCompanyById = async (id) => {
+    return new Promise((resolve, reject) => {
+        const sql = `SELECT * FROM companies WHERE id = ?`;
+        pool.query(sql, [id], (err, results) => {
+            if (err) reject(err);
+            resolve(results[0]);
+        });
+    });
+};

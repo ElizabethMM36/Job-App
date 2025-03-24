@@ -1,52 +1,22 @@
-import mongoose from "mongoose";
+import pool from "../utils/db.js";
 
-const jobSchema = new mongoose.Schema({
-    title: {
-        type: String,
-        required: true
-    },
-    description: {
-        type: String,
-        required: true
-    },
-    requirements: [{
-        type: String
-    }],
-    salary: {
-        type: Number,
-        required: true
-    },
-    experienceLevel:{
-        type:Number,
-        required:true,
-    },
-    location: {
-        type: String,
-        required: true
-    },
-    jobType: {
-        type: String,
-        required: true
-    },
-    position: {
-        type: Number,
-        required: true
-    },
-    company: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Company',
-        required: true
-    },
-    created_by: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
-    applications: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Application',
-        }
-    ]
-},{timestamps:true});
-export const Job = mongoose.model("Job", jobSchema);
+export const createJob = async (job) => {
+    const { title, description, requirements, salary, location, jobType, experience, position, companyId, created_by } = job;
+    return new Promise((resolve, reject) => {
+        const sql = `INSERT INTO jobs (title, description, requirements, salary, location, jobType, experience, position, companyId, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        pool.query(sql, [title, description, requirements, salary, location, jobType, experience, position, companyId, created_by], (err, results) => {
+            if (err) reject(err);
+            resolve(results);
+        });
+    });
+};
+
+export const getJobs = async () => {
+    return new Promise((resolve, reject) => {
+        const sql = `SELECT * FROM jobs`;
+        pool.query(sql, (err, results) => {
+            if (err) reject(err);
+            resolve(results);
+        });
+    });
+};
