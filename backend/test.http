@@ -1,0 +1,13 @@
+POST http://localhost:5000/api/education/addEducation
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEyLCJyb2xlIjoiam9ic2Vla2VyIiwiaWF0IjoxNzQzMzU3NTg0LCJleHAiOjE3NDM0NDM5ODR9.LBcmQsIYPizGCex_1y1SPCqWb-FDCes09j1EUr7xA88
+
+{
+  "applicant_id": 1,
+  "institution": "MIT",
+  "degree": "B.Sc Computer Science",
+  "start_year": 2018,
+  "end_year": 2022,
+  "certificate_files": "certificate1.pdf,certificate2.pdf"
+}
+

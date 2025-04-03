@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
 import { toast } from "sonner";
-import { setLoading } from "@/redux/authSlice";
+import { setLoading, setUser } from "@/redux/authSlice"; // Import setUser
 import { Loader2 } from "lucide-react";
 import { USER_API_END_POINT } from "@/utils/constant";
 
@@ -27,21 +27,22 @@ const Signup = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
-    // Handle input field changes
+    useEffect(() => {
+        console.log("User from Redux store:", user);
+        if (user) navigate("/");
+    }, [user, navigate]);
+
     const changeEventHandler = (e) => {
         setInput({ ...input, [e.target.name]: e.target.value });
     };
 
-    // Handle file selection
     const changeFileHandler = (e) => {
         setInput({ ...input, file: e.target.files?.[0] });
     };
-
-    // Handle form submission
     const submitHandler = async (e) => {
         e.preventDefault();
         dispatch(setLoading(true));
-
+    
         try {
             const formData = new FormData();
             formData.append("fullname", input.fullname);
@@ -50,28 +51,30 @@ const Signup = () => {
             formData.append("password", input.password);
             formData.append("role", input.role);
             if (input.file) formData.append("file", input.file);
-
+    
             const response = await axios.post(
                 `${USER_API_END_POINT}/register`,
                 formData,
                 { withCredentials: true, headers: { "Content-Type": "multipart/form-data" } }
             );
-
-            toast.success("Signup successful!");
-            navigate("/login");
+    
+            console.log("✅ Signup Success:", response.data);
+    
+            // 📌 Ensure the response contains a success message
+            if (response.data.message) {
+                toast.success(response.data.message);
+                navigate("/login");
+            } else {
+                throw new Error("Invalid response from server");
+            }
         } catch (error) {
-            console.error("Signup Error:", error);
+            console.error("❌ Signup Error:", error.response?.data || error.message);
             toast.error(error.response?.data?.message || "Something went wrong!");
         } finally {
             dispatch(setLoading(false));
         }
     };
-
-    // Redirect if user is already logged in
-    useEffect(() => {
-        if (user) navigate("/");
-    }, [user, navigate]);
-
+    
     return (
         <div>
             <Navbar />

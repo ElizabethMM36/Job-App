@@ -1,70 +1,77 @@
-import React, { useEffect, useState } from 'react'
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
-import { Avatar, AvatarImage } from '../ui/avatar'
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
-import { Edit2, Eye, MoreHorizontal } from 'lucide-react'
-import { useSelector } from 'react-redux'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from "react";
+import axios from "axios";
 
-const AdminJobsTable = () => { 
-    const {allAdminJobs, searchJobByText} = useSelector(store=>store.job);
+const AdminJobs = () => {
+    const [jobs, setJobs] = useState([]); 
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const [filterJobs, setFilterJobs] = useState(allAdminJobs);
-    const navigate = useNavigate();
+    useEffect(() => {
+        const fetchJobs = async () => {
+            try {
+                const response = await axios.get("http://localhost:5000/api/jobs/getadminjobs", {
+                    withCredentials: true, // Ensure authentication cookies are sent
+                });
 
-    useEffect(()=>{ 
-        console.log('called');
-        const filteredJobs = allAdminJobs.filter((job)=>{
-            if(!searchJobByText){
-                return true;
-            };
-            return job?.title?.toLowerCase().includes(searchJobByText.toLowerCase()) || job?.company?.name.toLowerCase().includes(searchJobByText.toLowerCase());
+                console.log("✅ Jobs Fetched:", response.data.jobs); // Debugging API response
+                setJobs(response.data.jobs || []); // Ensure jobs is always an array
+            } catch (error) {
+                console.error("❌ Error fetching jobs:", error.response?.data || error.message);
+                setError(error.response?.data?.message || "Failed to fetch jobs");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchJobs();
+    }, []);
 
-        });
-        setFilterJobs(filteredJobs);
-    },[allAdminJobs,searchJobByText])
+    if (loading) return <p>Loading jobs...</p>;
+    if (error) return <p style={{ color: "red" }}>{error}</p>;
+    if (!jobs.length) return <p>No jobs found.</p>;
+
     return (
-        <div>
-            <Table>
-                <TableCaption>A list of your recent  posted jobs</TableCaption>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Company Name</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {
-                        filterJobs?.map((job) => (
-                            <tr>
-                                <TableCell>{job?.company?.name}</TableCell>
-                                <TableCell>{job?.title}</TableCell>
-                                <TableCell>{job?.createdAt.split("T")[0]}</TableCell>
-                                <TableCell className="text-right cursor-pointer">
-                                    <Popover>
-                                        <PopoverTrigger><MoreHorizontal /></PopoverTrigger>
-                                        <PopoverContent className="w-32">
-                                            <div onClick={()=> navigate(`/admin/companies/${job._id}`)} className='flex items-center gap-2 w-fit cursor-pointer'>
-                                                <Edit2 className='w-4' />
-                                                <span>Edit</span>
-                                            </div>
-                                            <div onClick={()=> navigate(`/admin/jobs/${job._id}/applicants`)} className='flex items-center w-fit gap-2 cursor-pointer mt-2'>
-                                                <Eye className='w-4'/>
-                                                <span>Applicants</span>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
-                                </TableCell>
-                            </tr>
-
-                        ))
-                    }
-                </TableBody>
-            </Table>
+        <div style={{ padding: "20px", maxWidth: "90%", margin: "auto" }}>
+            <h2 style={{ textAlign: "center", marginBottom: "20px" }}>Admin Job Listings</h2>
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                <thead>
+                    <tr style={{ background: "#f4f4f4", borderBottom: "2px solid #ccc" }}>
+                        <th style={thStyle}>Company Name</th>
+                        <th style={thStyle}>Role</th>
+                        <th style={thStyle}>Salary</th>
+                        <th style={thStyle}>Location</th>
+                        <th style={thStyle}>Job Type</th>
+                        <th style={thStyle}>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {jobs.map((job, index) => (
+                        <tr key={job.id} style={{ background: index % 2 === 0 ? "#fff" : "#f9f9f9", borderBottom: "1px solid #ddd" }}>
+                            <td style={tdStyle}>{job.companyName || "Not Available"}</td>
+                            <td style={tdStyle}>{job.title}</td>
+                            <td style={tdStyle}>${job.salary}</td>
+                            <td style={tdStyle}>{job.location}</td>
+                            <td style={tdStyle}>{job.jobType}</td>
+                            <td style={tdStyle}>{job.createdAt ? job.createdAt.split("T")[0] : "N/A"}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
         </div>
-    )
-}
+    );
+};
 
-export default AdminJobsTable
+// Styling objects
+const thStyle = {
+    padding: "10px",
+    border: "1px solid #ddd",
+    fontWeight: "bold",
+    textAlign: "center",
+};
+
+const tdStyle = {
+    padding: "10px",
+    border: "1px solid #ddd",
+    textAlign: "center",
+};
+
+export default AdminJobs;

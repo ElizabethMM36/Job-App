@@ -45,5 +45,51 @@ CREATE TABLE applications (
 );
 ALTER TABLE users MODIFY role VARCHAR(20);
 SELECT*FROM users;
+SELECT*FROM companies;
 ALTER TABLE users MODIFY role ENUM('admin', 'recruiter', 'jobseeker') NOT NULL;
 UPDATE users SET role = 'jobseeker' WHERE role = 'student';
+SELECT * FROM users WHERE email = 'devikas@gmail.com';
+
+INSERT INTO applications (id, userId, jobId, status, createdAt)
+VALUES (
+    id:intSHOW CREATE TABLE jobs;,
+    userId:int,
+    jobId:int,
+    'status:enum',
+    'createdAt:timestamp'
+  );
+ALTER TABLE jobs
+MODIFY COLUMN createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+SHOW CREATE TABLE jobs
+DESCRIBE jobs;
+
+-- Create job_applicants table
+CREATE TABLE IF NOT EXISTS job_applicants (
+    applicant_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    birth_year INT NOT NULL,
+    current_location VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    preferred_position VARCHAR(255),
+    industry_fields VARCHAR(255)
+);
+CREATE TABLE IF NOT EXISTS job_applicants (
+    applicant_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    birth_year INT NOT NULL,
+    current_location VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    preferred_position VARCHAR(255),
+    industry_fields VARCHAR(255)
+);
+DESCRIBE applicant_education;
+        
+SELECT * FROM job_applicants;
+
+SELECT * FROM applicant_education;

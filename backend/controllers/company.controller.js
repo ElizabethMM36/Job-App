@@ -1,54 +1,84 @@
 import db from "../utils/db.js";
 
+/**
+ * ✅ Register a new company
+ * - Extracts userId from `req.user`
+ * - Inserts company into the database
+ * - Returns the newly created company
+ */
 export const registerCompany = async (req, res) => {
+    console.log("🔍 Received User ID:", req.user?.id);
+    console.log("📝 Received Body:", req.body);
+
+    const { name } = req.body;
+    const userId = req.user?.id; // ✅ Extract from authenticated request
+
+    // 🚨 Ensure user is authenticated
+    if (!userId) {
+        return res.status(401).json({ message: "Unauthorized: User ID missing", success: false });
+    }
+
+    // 🚨 Validate input
+    if (!name || name.trim() === "") {
+        return res.status(400).json({ message: "Company name is required", success: false });
+    }
+
     try {
-        const { name, description, location, industry } = req.body;
-        const userId = req.id;
-
-        if (!name || !description || !location || !industry) {
-            return res.status(400).json({ message: "Missing fields", success: false });
-        }
-
-        await db.execute(
-            "INSERT INTO companies (name, description, location, industry, created_by) VALUES (?, ?, ?, ?, ?)",
-            [name, description, location, industry, userId]
+        // ✅ Insert into DB
+        const [result] = await db.execute(
+            "INSERT INTO companies (name, userId) VALUES (?, ?)", 
+            [name, userId]
         );
 
-        return res.status(201).json({ message: "Company registered successfully", success: true });
+        const insertedId = result.insertId;
+
+        // ✅ Fetch newly inserted company
+        const [company] = await db.execute("SELECT * FROM companies WHERE id = ?", [insertedId]);
+
+        return res.status(201).json({ 
+            message: "Company registered successfully", 
+            success: true,
+            company: company[0], // ✅ Return new company
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Server error", success: false });
+        console.error("❌ Error inserting company:", error);
+        return res.status(500).json({ message: "Server error", success: false });
     }
 };
 
+/**
+ * ✅ Get company by ID
+ */
 export const getCompanyById = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // ✅ Fetch company
         const [companies] = await db.execute("SELECT * FROM companies WHERE id = ?", [id]);
+
         if (companies.length === 0) {
             return res.status(404).json({ message: "Company not found", success: false });
         }
+
         return res.status(200).json({ company: companies[0], success: true });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error fetching company by ID:", error);
         res.status(500).json({ message: "Server error", success: false });
     }
 };
- // MySQL connection
 
+/**
+ * ✅ Get all companies
+ * - Returns 404 if no companies exist
+ */
 export const getCompany = async (req, res) => {
     try {
-        const userId = req.id; // Logged-in user ID from authentication middleware
+        // ✅ Fetch all companies
+        const [companies] = await db.execute("SELECT * FROM companies");
 
-        // Fetch companies where userId is the owner
-        const [companies] = await db.execute(
-            `SELECT * FROM companies WHERE user_id = ?`,
-            [userId]
-        );
-
-        if (companies.length === 0) {
+        if (!companies.length) {
             return res.status(404).json({
-                message: "Companies not found.",
+                message: "No companies found.",
                 success: false
             });
         }
@@ -59,7 +89,7 @@ export const getCompany = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error fetching companies:", error);
         return res.status(500).json({
             message: "Server error",
             success: false
@@ -67,22 +97,14 @@ export const getCompany = async (req, res) => {
     }
 };
 
-
+/**
+ * ✅ Update company details
+ */
 export const updateCompany = async (req, res) => {
     try {
-        const { name, description, website, location } = req.body;
-        const companyId = req.params.id; // Get company ID from request params
+        const { name } = req.body;
+        const companyId = req.params.id;
 
-        let logoUrl = null;
-
-        // Upload new logo to Cloudinary if a file is provided
-        if (req.file) {
-            const fileUri = getDataUri(req.file);
-            const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
-            logoUrl = cloudResponse.secure_url;
-        }
-
-        // Prepare update query
         const updateFields = [];
         const values = [];
 
@@ -90,24 +112,7 @@ export const updateCompany = async (req, res) => {
             updateFields.push("name = ?");
             values.push(name);
         }
-        if (description) {
-            updateFields.push("description = ?");
-            values.push(description);
-        }
-        if (website) {
-            updateFields.push("website = ?");
-            values.push(website);
-        }
-        if (location) {
-            updateFields.push("location = ?");
-            values.push(location);
-        }
-        if (logoUrl) {
-            updateFields.push("logo = ?");
-            values.push(logoUrl);
-        }
 
-        // If no fields are being updated, return an error
         if (updateFields.length === 0) {
             return res.status(400).json({
                 message: "No fields provided for update.",
@@ -115,15 +120,13 @@ export const updateCompany = async (req, res) => {
             });
         }
 
-        values.push(companyId); // Add company ID at the end for the WHERE clause
+        values.push(companyId);
 
-        // Execute MySQL Update Query
         const [result] = await db.execute(
             `UPDATE companies SET ${updateFields.join(", ")} WHERE id = ?`,
             values
         );
 
-        // Check if any row was updated
         if (result.affectedRows === 0) {
             return res.status(404).json({
                 message: "Company not found.",
@@ -131,13 +134,17 @@ export const updateCompany = async (req, res) => {
             });
         }
 
+        // ✅ Return updated company
+        const [updatedCompany] = await db.execute("SELECT * FROM companies WHERE id = ?", [companyId]);
+
         return res.status(200).json({
             message: "Company information updated successfully.",
-            success: true
+            success: true,
+            company: updatedCompany[0], // ✅ Return updated company
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error updating company:", error);
         return res.status(500).json({
             message: "Server error.",
             success: false
