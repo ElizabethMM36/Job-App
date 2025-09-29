@@ -1,8 +1,10 @@
-const roleCheck = (roles) => {
+const roleCheck = (allowedRoles = [] ) => {
     return (req, res, next) => {
-        const userRole = req.role;
+     if (!req.user) return res.status(401).json({message: "Not authenticated", success: false });
+       
 
-        if (!roles.includes(userRole)) {
+     const userRole = req.user.role;
+        if (!allowedRoles.includes(userRole)) {
             return res.status(403).json({
                 message: "Access denied",
                 success: false,

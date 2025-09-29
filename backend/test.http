@@ -1,13 +1,35 @@
-POST http://localhost:5000/api/education/addEducation
+### ✅ Add Education Details
+POST http://localhost:5000/api/education/add
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEyLCJyb2xlIjoiam9ic2Vla2VyIiwiaWF0IjoxNzQzMzU3NTg0LCJleHAiOjE3NDM0NDM5ODR9.LBcmQsIYPizGCex_1y1SPCqWb-FDCes09j1EUr7xA88
+Authorization: Bearer YOUR_ACCESS_TOKEN_HERE
 
 {
-  "applicant_id": 1,
   "institution": "MIT",
   "degree": "B.Sc Computer Science",
   "start_year": 2018,
   "end_year": 2022,
   "certificate_files": "certificate1.pdf,certificate2.pdf"
 }
+
+### ✅ Upload Education Certificates (Multipart Form)
+POST http://localhost:5000/api/education/upload
+Authorization: Bearer YOUR_ACCESS_TOKEN_HERE
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="certificates"; filename="certificate1.pdf"
+Content-Type: application/pdf
+
+< ./certificate1.pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="certificates"; filename="certificate2.pdf"
+Content-Type: application/pdf
+
+< ./certificate2.pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ✅ Get Applicant's Education Details
+GET http://localhost:5000/api/education/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEyLCJyb2xlIjoiam9ic2Vla2VyIiwiaWF0IjoxNzQzMzU3NTg0LCJleHAiOjE3NDM0NDM5ODR9.LBcmQsIYPizGCex_1y1SPCqWb-FDCes09j1EUr7xA88
+
 

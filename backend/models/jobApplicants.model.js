@@ -1,19 +1,19 @@
 import pool from "../utils/db.js";
 
 // ✅ Insert New Applicant (Including `experience`)
-export const insertApplicant = async (user_id, username, password, full_name, birth_year, current_location, phone, email, preferred_position, industry_fields, experience) => {
+export const insertApplicant = async (applicant_id, username, password, full_name, birth_year, current_location, phone, email, preferred_position, industry_fields, experience) => {
     const query = `
-        INSERT INTO job_applicants (user_id, username, password, full_name, birth_year, current_location, phone, email, preferred_position, industry_fields, experience) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO job_applicants (applicant_id,  password, full_name, birth_year, current_location, phone, email, preferred_position, industry_fields, experience) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    const [result] = await pool.query(query, [user_id, username, password, full_name, birth_year, current_location, phone, email, preferred_position, industry_fields, experience]);
+    const [result] = await pool.query(query, [applicant_id, username, password, full_name, birth_year, current_location, phone, email, preferred_position, industry_fields, experience]);
     return result.insertId;
 };
 
 // ✅ Update Applicant Profile (Including `experience`)
-export const updateApplicantProfile = async (user_id, phone, email, experience) => {
-    const query = `UPDATE job_applicants SET phone = ?, email = ?, experience = ? WHERE user_id = ?`;
-    await pool.query(query, [phone, email, experience, user_id]);
+export const updateApplicantProfile = async (applicant_id, phone, email, experience) => {
+    const query = `UPDATE job_applicants SET phone = ?, email = ?, experience = ? WHERE applicant_id = ?`;
+    await pool.query(query, [phone, email, experience, applicant_id]);
 };
 
 // ✅ Get All Applicants

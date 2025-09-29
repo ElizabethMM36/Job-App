@@ -10,6 +10,8 @@ export const createApplicantEducationTable = async () => {
             degree VARCHAR(255) NOT NULL,
             start_year INT NOT NULL,
             end_year INT,
+            cgpa DECIMAL(3,2) NOT NULL,  -- ✅ Added CGPA (with 2 decimal places)
+            college_location VARCHAR(255) NOT NULL,  -- ✅ Added College Location
             certificate_files TEXT,  -- Stores uploaded file paths (comma-separated)
             FOREIGN KEY (applicant_id) REFERENCES job_applicants(applicant_id) ON DELETE CASCADE
         );
@@ -18,9 +20,9 @@ export const createApplicantEducationTable = async () => {
 };
 
 // ✅ Insert Education Record (Returns Insert ID)
-export const insertEducation = async (applicant_id, institution, degree, startYear, endYear, certificateFiles) => {
+export const insertEducation = async (applicant_id, institution, degree, startYear, endYear, cgpa, collegeLocation, certificateFiles) => {
     try {
-        if (!applicant_id || !institution || !degree || !startYear) {
+        if (!applicant_id || !institution || !degree || !startYear || !cgpa || !collegeLocation) {
             throw new Error("Missing required fields in insertEducation function.");
         }
 
@@ -30,10 +32,16 @@ export const insertEducation = async (applicant_id, institution, degree, startYe
             degree, 
             startYear, 
             endYear, 
+            cgpa,
+            collegeLocation,
             certificateFiles 
         });
 
-        const query = `INSERT INTO applicant_education (applicant_id, institution, degree, start_year, end_year, certificate_files) VALUES (?, ?, ?, ?, ?, ?)`;
+        const query = `
+            INSERT INTO applicant_education 
+            (applicant_id, institution, degree, start_year, end_year, cgpa, college_location, certificate_files) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
 
         const values = [
             applicant_id, 
@@ -41,6 +49,8 @@ export const insertEducation = async (applicant_id, institution, degree, startYe
             degree, 
             startYear, 
             endYear !== undefined ? endYear : null, 
+            cgpa,
+            collegeLocation,
             certificateFiles !== undefined ? certificateFiles : null
         ];
 
@@ -51,7 +61,6 @@ export const insertEducation = async (applicant_id, institution, degree, startYe
         throw error;
     }
 };
-
 
 // ✅ Fetch Education Details by Applicant ID
 export const getEducationByApplicantId = async (applicant_id) => {

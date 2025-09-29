@@ -8,6 +8,7 @@ import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
 import { useNavigate } from "react-router-dom";
+import { updateProfile } from "../api"; // ✅ Import API function
 
 const UpdateProfileDialog = ({ open, setOpen }) => {
   const navigate = useNavigate();
@@ -21,7 +22,6 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
     preferred_position: "",
     industry_fields: "",
     experience: "",
-    resume: null, // Stores uploaded file
   });
 
   // Handle form input changes
@@ -30,30 +30,13 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle resume upload
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file && file.type === "application/pdf") {
-      setFormData((prev) => ({ ...prev, resume: file }));
-    } else {
-      alert("Please upload a valid PDF file.");
-    }
-  };
-
+  // ✅ Move updateProfile call inside handleSubmit
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
-    const formDataToSend = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      formDataToSend.append(key, value);
-    });
-  
+
     try {
-        const response = await axios.post("http://localhost:5000/api/v1/profile/update", formDataToSend, {
-            headers: { "Content-Type": "multipart/form-data" },
-         });
-         
-  
+      // ✅ Now `formData` is properly defined here
+      const response = await updateProfile(formData);
       console.log("Profile Saved:", response.data);
       alert("Profile saved successfully!");
       setOpen(false);
@@ -65,7 +48,6 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
 
   return (
     <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-      {/* Modal Title with Close Button */}
       <DialogTitle>
         Update Profile
         <IconButton
@@ -77,7 +59,6 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
         </IconButton>
       </DialogTitle>
 
-      {/* Modal Content */}
       <DialogContent>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <TextField label="Full Name" name="full_name" value={formData.full_name} onChange={handleChange} required />
@@ -89,15 +70,10 @@ const UpdateProfileDialog = ({ open, setOpen }) => {
           <TextField label="Industry Fields" name="industry_fields" value={formData.industry_fields} onChange={handleChange} required />
           <TextField label="Experience (Years)" name="experience" type="number" value={formData.experience} onChange={handleChange} required />
 
-          {/* Resume Upload (PDF) */}
-          <input type="file" accept="application/pdf" onChange={handleFileChange} required />
-
-          {/* Submit Button */}
           <Button type="submit" variant="contained" color="primary">
             Save Profile
           </Button>
 
-          {/* Navigate to Education Form */}
           <Button variant="outlined" color="secondary" onClick={() => navigate("/applicant-education")}>
             Add Education Details
           </Button>

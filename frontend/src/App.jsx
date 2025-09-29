@@ -15,7 +15,8 @@ import PostJob from "./components/admin/PostJob";
 import Applicants from "./components/admin/Applicants";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import ApplicantEducation from "./components/ApplicantEducation";
-
+import Dashboard from "./components/Dashboard";
+import ManageApplications from "./components/ManageApplications"; // Importing the ManageApplications component
 
 
 function App() {
@@ -32,8 +33,8 @@ function App() {
         <Route path="/browse" element={<Browse />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/applicant-education" element={<ApplicantEducation />} />
-
-        {/* ✅ Admin Pages (Protected) */}
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/manage-applications" element={<ManageApplications />} /> {/* Fixed this line */}
         <Route path="/admin/companies" element={<ProtectedRoute><Companies /></ProtectedRoute>} />
         <Route path="/admin/companies/create" element={<ProtectedRoute><CompanyCreate /></ProtectedRoute>} />
         <Route path="/admin/companies/:id" element={<ProtectedRoute><CompanySetup /></ProtectedRoute>} />

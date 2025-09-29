@@ -1,22 +1,42 @@
 import db from "../utils/db.js";
-
-// ✅ Get User Profile
 export const getProfile = async (req, res) => {
     try {
-        const applicant_id = req.user.id; // ✅ Change from req.userId to req.user.id
-// Ensure authentication middleware sets this
-        const [profile] = await db.execute("SELECT * FROM job_applicants WHERE applicant_id = ?", [applicant_id]);
-
-        if (profile.length === 0) {
-            return res.status(404).json({ message: "User not found", success: false });
+      const userId = req.user.id; // ✅ This should be the username (email)
+      console.log("🔍 Fetching profile for:", userId);
+  
+      // ✅ Get user profile
+      const [profileResult] = await db.execute(
+        "SELECT * FROM job_applicants WHERE username = ?",
+        [userId]
+      );
+  
+      if (!profileResult.length) {
+        return res.status(404).json({ message: "User profile not found" });
+      }
+  
+      const profile = profileResult[0];
+  
+      // ✅ Get education details
+      const [educationResult] = await db.execute(
+        "SELECT institution, degree, start_year, end_year, certificate_files FROM applicant_education WHERE applicant_id = ?",
+        [profile.applicant_id]
+      );
+  
+      // ✅ Combine and respond
+      res.json({
+        success: true,
+        profile: {
+          ...profile,
+          education: educationResult || []
         }
-
-        return res.status(200).json({ profile: profile[0], success: true });
+      });
+  
     } catch (error) {
-        console.error("❌ Get Profile Error:", error);
-        res.status(500).json({ message: "Server error", success: false });
+      console.error("🔥 Error fetching profile:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
-};
+  };
+  
 
 // ✅ Update Profile
 export const updateProfile = async (req, res) => {

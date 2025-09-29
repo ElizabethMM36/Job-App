@@ -1,17 +1,17 @@
 import express from "express";
 import { upload } from "../middlewares/upload.js";
 import { addEducation, uploadCertificate, getEducation } from "../controllers/education.controller.js";
-import authenticate from "../middlewares/isAuthenticated.js"; // ✅ Corrected import
+import authorize from "../middlewares/authorize.js"; // ✅ Authentication middleware
 
 const router = express.Router();
 
 // ✅ **Add Education Details**
-router.post("/add", authenticate, addEducation);
+router.post("/add", authorize(["jobseeker"]), addEducation);
 
-// ✅ **Upload Education Certificates**
-router.post("/upload", authenticate, upload.array("certificates", 5), uploadCertificate);
+// ✅ **Upload a Single Education Certificate**
+router.post("/upload", authorize(["jobseeker"]), upload.single("certificate"), uploadCertificate);
 
 // ✅ **Get Applicant's Education Details**
-router.get("/", authenticate, getEducation);
+router.get("/", authorize(["jobseeker","admin"]), getEducation);
 
 export default router;

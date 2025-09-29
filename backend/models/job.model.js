@@ -1,5 +1,5 @@
 import pool from "../utils/db.js";
-
+import db from "../utils/db.js"; 
 export const createJob = async (job) => {
     let { title, description, requirements, salary, location, jobType, experience, position, companyId, created_by } = job;
 
@@ -17,7 +17,26 @@ export const createJob = async (job) => {
     return new Promise((resolve, reject) => {
         const sql = `
             INSERT INTO jobs (title, description, requirements, salary, location, jobType, experience, position, companyId, created_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)INSERT INTO users (
+                id,
+                fullname,
+                email,
+                phoneNumber,
+                password,
+                role,
+                profilePhoto,
+                createdAt
+              )
+            VALUES (
+                id:int,
+                'fullname:varchar',
+                'email:varchar',
+                'phoneNumber:varchar',
+                'password:varchar',
+                'role:enum',
+                'profilePhoto:varchar',
+                'createdAt:timestamp'
+              );
         `;
         pool.query(sql, [title, description, requirements, salary, location, jobType, experience, position, companyId, created_by], (err, results) => {
             if (err) {
@@ -29,15 +48,15 @@ export const createJob = async (job) => {
     });
 };
 
+ // Ensure this is your MySQL2 Promise pool connection
+
 export const getJobs = async () => {
-    return new Promise((resolve, reject) => {
-        const sql = `SELECT * FROM jobs`;
-        pool.query(sql, (err, results) => {
-            if (err) {
-                console.error("Error fetching jobs:", err);
-                return reject(err);
-            }
-            resolve(results);
-        });
-    });
+    try {
+        const [results] = await db.query(`SELECT * FROM jobs`);  // ✅ Correct syntax for mysql2 Promises
+        console.log("🟢 Jobs retrieved:", results);
+        return results;
+    } catch (error) {
+        console.error("❌ Error fetching jobs from database:", error);
+        throw error;
+    }
 };

@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import db from "./utils/db.js"; // MySQL database connection
-
+import path from "path";
 // Import Routes
 import userRoutes from "./routes/user.route.js";
 import jobRoutes from "./routes/job.route.js";
@@ -11,7 +11,7 @@ import companyRoutes from "./routes/company.route.js";
 import educationRoutes from "./routes/education.route.js";
 import profileRoutes from "./routes/profile.route.js"; 
 import applicationRoutes from "./routes/application.route.js";  // ✅ Import Application Routes
-
+import certificatesRoutes from "./routes/certificates.route.js";
 // Load environment variables
 dotenv.config();
 
@@ -22,12 +22,15 @@ const app = express();
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true })); 
 app.use(cookieParser()); 
-
+// ✅ Serve uploads folder statically
+app.use("/uploads", express.static(path.join(process.cwd(), "backend", "uploads")));
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5175",
   "http://localhost:5176",
-  "http://localhost:5177"
+  "http://localhost:5177",
+  "http://localhost:5178",
+  "http://localhost:5179"
 ];
 
 app.use(
@@ -63,14 +66,14 @@ db.getConnection()
     process.exit(1); 
   });
 
-// ✅ Routes
+// ✅ Register Routes
 app.use("/api/users", userRoutes);
-app.use("/api/jobs", jobRoutes);
-app.use("/api/companies", companyRoutes);  // ✅ Standardized company route
-app.use("/api/education", educationRoutes);  // ✅ Updated education route
-app.use("/api/profile", profileRoutes);  // ✅ Updated profile route
-app.use("/api/applications", applicationRoutes);  // ✅ Standardized application route
-
+app.use("/api/jobs", jobRoutes);  // ✅ Register job routes in API
+app.use("/api/companies", companyRoutes);  
+app.use("/api/education", educationRoutes);  
+app.use("/api/profile", profileRoutes); 
+app.use("/api/applications", applicationRoutes);
+app.use("/api/certificates", certificatesRoutes);
 // ✅ Root Route
 app.get("/", (req, res) => {
   res.send("Welcome to the Job Portal API 🚀");

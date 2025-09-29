@@ -41,6 +41,7 @@ const Navbar = () => {
                             <>
                                 <li><Link to="/admin/companies">Companies</Link></li>
                                 <li><Link to="/admin/jobs">Jobs</Link></li>
+                                <li><Link to="/manage-applications">Manage Applications</Link></li> {/* Added Manage Applications Link */}
                             </>
                         ) : (
                             <>

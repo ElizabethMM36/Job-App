@@ -18,6 +18,14 @@ const CompanyCreate = () => {
     const userId = useSelector((state) => state.auth.user?.id) || localStorage.getItem("userId");
     const token = useSelector((state) => state.auth.token) || localStorage.getItem("token");
 
+    console.log("🔍 Token being sent:", token); // Debugging
+    
+    if (!token) {
+        toast.error("Authentication failed. Please log in again.");
+        return;
+    }
+    
+
     const [name, setName] = useState("");
     const [loading, setLoading] = useState(false);
 

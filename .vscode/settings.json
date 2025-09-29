@@ -14,6 +14,22 @@
             "username": "root",
             "password": "Devika@2004",
             "connectionTimeout": 50
+        },
+        {
+            "mysqlOptions": {
+                "authProtocol": "xprotocol",
+                "enableSsl": "Disabled"
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 33060,
+            "driver": "MySQL",
+            "name": "link",
+            "database": "LINK",
+            "username": "root",
+            "password": "EliMat@16605",
+            "connectionTimeout": 500
         }
     ],
     "liveServer.settings.port": 5501

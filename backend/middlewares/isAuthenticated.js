@@ -1,63 +1,69 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import db from "../utils/db.js";
 
-dotenv.config(); // Load environment variables
-
+dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
-    console.error("❌ JWT_SECRET is missing! Check your .env file.");
-    process.exit(1);
+  console.error("❌ JWT_SECRET is missing!");
+  process.exit(1);
 }
 
-const isAuthenticated = (req, res, next) => {
-    try {
-        let token = req.cookies?.token; // ✅ First check for token in cookies
-        console.log("📌 Token from cookies:", token);
+const isAuthenticated = async (req, res, next) => {
+  try {
+    // ✅ Get token from cookies or Authorization header
+    let token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
 
-        // 🔹 If token is not found in cookies, check Authorization header
-        if (!token && req.headers.authorization) {
-            const [scheme, credentials] = req.headers.authorization.split(" ");
-            if (scheme === "Bearer") {
-                token = credentials;
-                console.log("📌 Token from Authorization header:", token);
-            }
-        }
-
-        // 🔹 Reject request if token is still missing
-        if (!token) {
-            console.warn("❌ No token provided, authentication failed.");
-            return res.status(401).json({
-                message: "User not authenticated. Please log in.",
-                success: false,
-            });
-        }
-
-        // 🔹 Verify token
-        jwt.verify(token, JWT_SECRET, (err, decoded) => {
-            if (err) {
-                console.error("❌ Authentication Error:", err.message);
-                
-                // Handle expired token separately
-                const errorMessage =
-                    err.name === "TokenExpiredError"
-                        ? "Session expired. Please log in again."
-                        : "Invalid token. Authentication failed.";
-
-                return res.status(401).json({ message: errorMessage, success: false });
-            }
-
-            // 🔹 Attach user details to request object
-            req.user = { id: decoded.userId, role: decoded.role }; // Change here
-            console.log("✅ Authenticated User ID:", req.user.id, "| Role:", req.user.role);
-
-            next(); // Proceed to the next middleware or controller
-        });
-
-    } catch (error) {
-        console.error("❌ Unexpected Error in Authentication Middleware:", error);
-        return res.status(500).json({ message: "Internal Server Error", success: false });
+    if (!token) {
+      return res.status(401).json({ message: "User not authenticated", success: false });
     }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      const msg = err.name === "TokenExpiredError" ? "Session expired" : "Invalid token";
+      return res.status(401).json({ message: msg, success: false });
+    }
+
+    const { userId, role } = decoded;
+
+    if (!userId || !role) {
+      return res.status(401).json({ message: "Invalid token payload", success: false });
+    }
+
+    if (role === "recruiter") {
+      // Recruiters don't have applicant_id
+      req.user = { id: userId, role };
+      return next();
+    }
+
+    // ✅ Jobseeker: fetch applicant_id
+    // NEW
+const [rows] = await db.execute(
+  "SELECT applicant_id FROM job_applicants WHERE applicant_id = ?",
+  [userId]
+);
+
+
+   
+  if (!rows.length) {
+    return res.status(404).json({ message: "Jobseeker profile not found", success: false });
+  }
+
+  req.user = {
+    id: userId,                    // users table PK
+    applicant_id: rows[0].applicant_id, // job_applicants PK
+    role,
+  };
+
+
+    next();
+  } catch (err) {
+    console.error("❌ Authentication middleware error:", err);
+    return res.status(500).json({ message: "Internal server error", success: false });
+  }
 };
 
 export default isAuthenticated;
