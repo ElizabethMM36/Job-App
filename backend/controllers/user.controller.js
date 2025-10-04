@@ -1,180 +1,128 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import db from "../utils/db.js"; // MySQL database connection
+import db from "../utils/db.js";
 import getDataUri from "../utils/datauri.js";
 import cloudinary from "../utils/cloudinary.js";
 
-// 🟢 REGISTER USER
-// 🟢 REGISTER USER (Jobseeker + Recruiter)
+// REGISTER USER (jobseeker / recruiter / admin)
 export const register = async (req, res) => {
   try {
     const { fullname, email, phoneNumber, password, role } = req.body;
-
-    if (!fullname || !email || !phoneNumber || !password || !role) {
+    if (!fullname || !email || !phoneNumber || !password || !role)
       return res.status(400).json({ message: "All fields are required", success: false });
-    }
 
-    if (!["jobseeker", "recruiter"].includes(role)) {
+    if (!["jobseeker", "recruiter", "admin"].includes(role))
       return res.status(400).json({ message: "Invalid role", success: false });
-    }
 
-    // Check if email exists
     const [existingUser] = await db.execute("SELECT email FROM users WHERE email = ?", [email]);
-    if (existingUser.length > 0) {
+    if (existingUser.length > 0)
       return res.status(400).json({ message: "Email already registered", success: false });
-    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    let profilePhotoUrl = "";
+    let profilePhoto = null;
     if (req.file) {
       const fileUri = getDataUri(req.file);
-      const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
-      profilePhotoUrl = cloudResponse.secure_url;
+      const cloudResp = await cloudinary.uploader.upload(fileUri.content);
+      profilePhoto = cloudResp.secure_url;
     }
 
+    const status = role === "admin" ? "verified" : "pending";
 
-
-    // Insert into users table
     const [result] = await db.execute(
-      `INSERT INTO users 
-        (fullname, email, phoneNumber, password, role, profilePhoto, status) 
+      `INSERT INTO users (fullname, email, phoneNumber, password, role, profilePhoto, status)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [fullname, email, phoneNumber, hashedPassword, role, profilePhotoUrl, status]
+      [fullname, email, phoneNumber, hashedPassword, role, profilePhoto, status]
     );
 
     const userId = result.insertId;
 
-    // ✅ If jobseeker, insert into job_applicants with default/optional fields
     if (role === "jobseeker") {
       await db.execute(
-        `INSERT INTO job_applicants (
-            applicant_id,
-            password,
-            full_name,
-            birth_year,
-            current_location,
-            phone,
-            email,
-            preferred_position,
-            industry_fields,
-            experience
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          userId,
-          hashedPassword,
-          fullname,
-          null,        // birth_year optional
-          null,        // current_location optional
-          phoneNumber,
-          email,
-          null,        // preferred_position optional
-          null,        // industry_fields optional
-          null         // experience optional
-        ]
+        `INSERT INTO job_applicants (applicant_id, full_name, email, phone, status)
+         VALUES (?, ?, ?, ?, ?)`,
+        [userId, fullname, email, phoneNumber, status]
       );
     }
 
-    return res.status(201).json({ message: "User registered successfully", userId, role, status, success: true });
-    
+    if (role === "recruiter") {
+      await db.execute(
+        `INSERT INTO recruiters (user_id, contact_name, email, phone, status)
+         VALUES (?, ?, ?, ?, ?)`,
+        [userId, fullname, email, phoneNumber, status]
+      );
+    }
+
+    return res.status(201).json({
+      message: "User registered successfully",
+      userId,
+      role,
+      status,
+      success: true,
+    });
   } catch (error) {
-    console.error("❌ Server error:", error);
+    console.error("❌ Register Error:", error);
     return res.status(500).json({ message: "Server error", success: false });
   }
 };
 
-// 🟢 LOGIN USER
+// LOGIN USER
 export const login = async (req, res) => {
-    try {
-        console.log("📌 Incoming request:", req.body);  
+  try {
+    const { email, password, role } = req.body;
+    if (!email || !password || !role)
+      return res.status(400).json({ message: "All fields are required", success: false });
 
-        const { email, password, role } = req.body;
-        if (!email || !password || !role) {
-            return res.status(400).json({ message: "All fields are required", success: false });
-        }
+    const [users] = await db.execute("SELECT * FROM users WHERE email = ?", [email]);
+    if (users.length === 0)
+      return res.status(400).json({ message: "Invalid email or password", success: false });
 
-        const [users] = await db.execute("SELECT * FROM users WHERE email = ?", [email]);
-        if (users.length === 0) {
-            return res.status(400).json({ message: "Invalid email or password", success: false });
-        }
+    const user = users[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch || role !== user.role)
+      return res.status(400).json({ message: "Invalid credentials", success: false });
 
-        const user = users[0];
+    const token = jwt.sign(
+      { userId: user.user_id, role: user.role, status: user.status, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
-        const isPasswordMatch = await bcrypt.compare(password, user.password);
-        if (!isPasswordMatch || role !== user.role) {
-            return res.status(400).json({ message: "Invalid credentials", success: false });
-        }
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "None",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
 
-        if (user.role === "recruiter" && user.status !== "approved") {
-            return res.status(403).json({ message: "Recruiter account is not approved yet", success: false });
-        }
-        if (!process.env.JWT_SECRET) {
-            return res.status(500).json({ message: "Server configuration error", success: false });
-        }
-
-        // ✅ Include role in JWT token
-     const token = jwt.sign(
-  {
-    userId: user.user_id,   // <--- important
-    role: user.role,
-    status: user.status,
-    email: user.email
-  },
-  process.env.JWT_SECRET,
-  { expiresIn: "1d" }
-);
-
-
-        console.log("Generated Token:", jwt.decode(token)); // ✅ Debugging
-
-        // ✅ Fix: Set secure cookie settings
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production", // Only set to true in production (HTTPS)
-            sameSite: "None",  // Required for cross-origin authentication
-            maxAge: 24 * 60 * 60 * 1000, // 1 day
-        });
-
-        return res.status(200).json({
-            message: `Welcome back, ${user.fullname}`,
-            success: true,
-            token, // 🔥 Include the token in response
-            user: { id: user.id, fullname: user.fullname, email: user.email, role: user.role }
-        });
-        
-
-    } catch (error) {
-        console.error("❌ Login error:", error);
-        return res.status(500).json({ message: "Server error", success: false });
-    }
+    return res.status(200).json({
+      message: `Welcome back, ${user.fullname}`,
+      success: true,
+      token,
+      user: { id: user.user_id, fullname: user.fullname, email: user.email, role: user.role, status: user.status, profilePhoto: user.profilePhoto },
+    });
+  } catch (error) {
+    console.error("❌ Login Error:", error);
+    return res.status(500).json({ message: "Server error", success: false });
+  }
 };
- 
+
 export const logout = (req, res) => {
-    return res.status(200).cookie("token", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "None",
-        expires: new Date(0) // Expire immediately
-    }).json({ message: "Logged out successfully", success: true });
+  return res.status(200).cookie("token", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "None",
+    expires: new Date(0)
+  }).json({ message: "Logged out successfully", success: true });
 };
 
-// 🟢 UPDATE PROFILE
+// UPDATE PROFILE
 export const updateProfile = async (req, res) => {
   try {
-    console.log("📌 Update Request Body:", req.body);
-    console.log("📌 Authenticated User:", req.user);
+    if (!req.user) return res.status(401).json({ message: "Not authenticated", success: false });
 
-    // ✅ Ensure middleware attached user
-    if (!req.user) {
-      return res.status(401).json({ message: "Not authenticated", success: false });
-    }
+    const userId = req.user.id;
 
-    const applicant_id = req.user.applicant_id;
-    if (!applicant_id) {
-      return res.status(400).json({ message: "Applicant ID not found", success: false });
-    }
-
-    // ✅ Extract updatable fields only
     const {
       birth_year = null,
       current_location = null,
@@ -183,75 +131,31 @@ export const updateProfile = async (req, res) => {
       experience = null,
     } = req.body;
 
-    // ✅ Check if applicant exists
-    let applicants;
-    try {
-      [applicants] = await db.execute(
-        "SELECT * FROM job_applicants WHERE applicant_id = ?",
-        [applicant_id]
-      );
-    } catch (dbErr) {
-      console.error("❌ DB SELECT Error:", dbErr);
-      return res.status(500).json({ message: "Database error", success: false });
-    }
+    const [applicants] = await db.execute(
+      "SELECT * FROM job_applicants WHERE applicant_id = ?",
+      [userId]
+    );
 
-    if (!applicants.length) {
-      return res.status(404).json({ message: "Applicant not found", success: false });
-    }
+    if (!applicants.length) return res.status(404).json({ message: "Applicant not found", success: false });
 
-    // ✅ Update only allowed fields
-    const sqlQuery = `
-      UPDATE job_applicants
-      SET birth_year = ?, current_location = ?, preferred_position = ?, 
-          industry_fields = ?, experience = ?
-      WHERE applicant_id = ?
-    `;
-    const sqlValues = [
-  birth_year,
-  current_location,
-  preferred_position,
-  industry_fields ? JSON.stringify(industry_fields) : null,
-  experience,
-  applicant_id,
-];
+    await db.execute(
+      `UPDATE job_applicants
+       SET birth_year = ?, current_location = ?, preferred_position = ?, industry_fields = ?, experience = ?
+       WHERE applicant_id = ?`,
+      [birth_year, current_location, preferred_position, industry_fields ? JSON.stringify(industry_fields) : null, experience, userId]
+    );
 
+    const [updatedApplicant] = await db.execute("SELECT * FROM job_applicants WHERE applicant_id = ?", [userId]);
+    const applicant = updatedApplicant[0];
+    if (applicant.industry_fields) applicant.industry_fields = JSON.parse(applicant.industry_fields);
 
-    try {
-      await db.execute(sqlQuery, sqlValues);
-      console.log("✅ Profile updated successfully!");
-    } catch (updateErr) {
-      console.error("❌ DB UPDATE Error:", updateErr);
-      return res.status(500).json({ message: "Database update failed", success: false });
-    }
-
-    // ✅ Fetch updated profile
-    let updatedApplicant;
-    try {
-      [updatedApplicant] = await db.execute(
-        "SELECT * FROM job_applicants WHERE applicant_id = ?",
-        [applicant_id]
-      );
-    } catch (fetchErr) {
-      console.error("❌ DB FETCH Error:", fetchErr);
-      return res.status(500).json({ message: "Failed to fetch updated applicant", success: false });
-    }
- const applicant = updatedApplicant[0];
-if (applicant.industry_fields) {
-  applicant.industry_fields = JSON.parse(applicant.industry_fields);
-}
-
-    return res.status(200).json({
-  message: "Profile updated successfully.",
-  applicant,
-  success: true,
-});
-
-
+    return res.status(200).json({ message: "Profile updated successfully", applicant, success: true });
   } catch (error) {
-    console.error("❌ Unexpected Error in updateProfile:", error);
+    console.error("❌ updateProfile Error:", error);
     return res.status(500).json({ message: "Server error", success: false });
   }
 };
+
 
 
 // 🟢 GET ALL JOB APPLICANTS

@@ -12,7 +12,7 @@ export const createApplicantEducationTable = async () => {
             end_year INT,
             cgpa DECIMAL(3,2) NOT NULL,  -- ✅ Added CGPA (with 2 decimal places)
             college_location VARCHAR(255) NOT NULL,  -- ✅ Added College Location
-            certificate_files TEXT,  -- Stores uploaded file paths (comma-separated)
+            
             FOREIGN KEY (applicant_id) REFERENCES job_applicants(applicant_id) ON DELETE CASCADE
         );
     `;
@@ -20,7 +20,7 @@ export const createApplicantEducationTable = async () => {
 };
 
 // ✅ Insert Education Record (Returns Insert ID)
-export const insertEducation = async (applicant_id, institution, degree, startYear, endYear, cgpa, collegeLocation, certificateFiles) => {
+export const insertEducation = async (applicant_id, institution, degree, startYear, endYear, cgpa, collegeLocation) => {
     try {
         if (!applicant_id || !institution || !degree || !startYear || !cgpa || !collegeLocation) {
             throw new Error("Missing required fields in insertEducation function.");
@@ -33,13 +33,12 @@ export const insertEducation = async (applicant_id, institution, degree, startYe
             startYear, 
             endYear, 
             cgpa,
-            collegeLocation,
-            certificateFiles 
+            collegeLocation
         });
 
         const query = `
             INSERT INTO applicant_education 
-            (applicant_id, institution, degree, start_year, end_year, cgpa, college_location, certificate_files) 
+            (applicant_id, institution, degree, start_year, end_year, cgpa, college_location) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
@@ -50,8 +49,8 @@ export const insertEducation = async (applicant_id, institution, degree, startYe
             startYear, 
             endYear !== undefined ? endYear : null, 
             cgpa,
-            collegeLocation,
-            certificateFiles !== undefined ? certificateFiles : null
+            collegeLocation
+           
         ];
 
         const [result] = await pool.query(query, values);

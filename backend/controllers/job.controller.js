@@ -4,7 +4,7 @@ import { getJobs } from '../models/job.model.js';
 export const postJob = async (req, res) => {
     try {
         if (req.user.role !== 'recruiter') return res.status(403).json({message:"Only recruiters can post jobs", success: false});
-        if(req.user.status !== 'approved') return res.status(403).json({message:"Your account is not approved to post jobs", success: false});
+        if(req.user.status !== 'verified') return res.status(403).json({message:"Your account is not approved to post jobs", success: false});
         const { title, description, requirements, salary, location, jobType, experience, position, companyId } = req.body;
         const userId = req.user.id; // Use req.user.id instead of req.id for the authenticated admin's ID
 
@@ -66,7 +66,7 @@ export const applyForJob = async (req, res) => {
 
         // ✅ Fetch applicant details
         const [applicantData] = await db.execute(
-            "SELECT full_name, email, phone, preferred_position FROM job_applicants WHERE applicant_id = ?",
+            "SELECT full_name, email, phone, preferred_position, experience FROM job_applicants WHERE applicant_id = ?",
             [applicant_id]
         );
         console.log("🧾 Applicant Details:", applicantData);
@@ -75,7 +75,24 @@ export const applyForJob = async (req, res) => {
             return res.status(404).json({ message: "Applicant details not found", success: false });
         }
 
-        const { full_name, email, phone, preferred_position } = applicantData[0];
+        const { full_name, email, phone, preferred_position, experience } = applicantData[0];
+
+        // ✅ Fetch highest education
+        const [educationData] = await db.execute(
+            `SELECT institution, degree, end_year, cgpa 
+             FROM applicant_education 
+             WHERE applicant_id = ? 
+             ORDER BY end_year DESC 
+             LIMIT 1`,
+            [applicant_id]
+        );
+        console.log("🎓 Highest Education:", educationData);
+
+        let highestEducation = null;
+        if (educationData.length > 0) {
+            const { institution, degree, end_year, cgpa } = educationData[0];
+            highestEducation = `${degree} from ${institution} (Year: ${end_year}, CGPA: ${cgpa})`;
+        }
 
         // ✅ Insert the application
         const values = [
@@ -86,15 +103,17 @@ export const applyForJob = async (req, res) => {
             email,
             phone,
             preferred_position,
-            'Pending'
+            experience,
+            highestEducation,
+            "Pending"
         ];
 
         console.log("📤 Inserting into job_applications with values:", values);
 
         await db.execute(
             `INSERT INTO job_applications 
-                (job_id, applicant_id, recruiter_id, full_name, email, phone, preferred_position, status) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                (job_id, applicant_id, recruiter_id, full_name, email, phone, preferred_position, experience, highest_education, status) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             values
         );
 
@@ -132,8 +151,9 @@ export const updateApplicationStatus = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid status value" });
         }
 
+        // Use application_id instead of id
         await db.execute(
-            `UPDATE job_applications SET status = ? WHERE application_id = ?`,
+            `UPDATE job_applications SET status = ? WHERE id = ?`,
             [new_status, application_id]
         );
 
@@ -202,13 +222,15 @@ export const getJobApplications = async (req, res) => {
 
         const [applications] = await db.execute(
             `SELECT 
-                ja.application_id,
+                ja.id AS application_id,        -- use 'id' as primary key
                 ja.status,
                 ja.job_id,
                 ja.full_name,
                 ja.email,
                 ja.phone,
                 ja.preferred_position,
+                ja.experience,
+                ja.highest_education,
                 j.title AS job_title
              FROM job_applications ja
              JOIN jobs j ON ja.job_id = j.id
@@ -222,6 +244,7 @@ export const getJobApplications = async (req, res) => {
         res.status(500).json({ success: false, message: "Server error" });
     }
 };
+
 
 export const updateJob = async (req, res) => {
     try {
@@ -244,4 +267,27 @@ export const updateJob = async (req, res) => {
         console.error(error);
         res.status(500).json({ message: "Server error", success: false });
     }
+};
+export const getAppliedJobs = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [applications] = await db.execute(
+      `SELECT 
+          j.title AS job_title, 
+          ja.status AS application_status,
+          ja.applied_at
+       FROM job_applications ja
+       JOIN jobs j ON ja.job_id = j.id
+       WHERE ja.applicant_id = ?
+       ORDER BY ja.applied_at DESC`,
+      [userId]
+    );
+
+    return res.status(200).json({ appliedJobs: applications, success: true });
+  } catch (error) {
+    console.error("SQL Error:", error.sqlMessage || error.message);
+    console.error("SQL Query:", error.sql);
+    res.status(500).json({ message: "Server error", success: false });
+  }
 };

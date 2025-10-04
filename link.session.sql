@@ -25,8 +25,8 @@ CREATE TABLE recruiters (
     
     FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE 
 );
-ALTER TABLE users
-RENAME COLUMN id TO user_id;
+ALTER TABLE recruiters
+RENAME COLUMN comapany_name TO company_name;
 
 SHOW CREATE TABLE recruiters;
 ALTER TABLE recruiters DROP COLUMN username;
@@ -53,3 +53,7 @@ CREATE TABLE IF NOT EXISTS certificates (
 
 ALTER TABLE job_applicants
 MODIFY COLUMN current_location VARCHAR(255);
+
+ALTER TABLE recruiters
+MODIFY password NULL;
+

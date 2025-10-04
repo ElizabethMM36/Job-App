@@ -12,6 +12,7 @@ import educationRoutes from "./routes/education.route.js";
 import profileRoutes from "./routes/profile.route.js"; 
 import applicationRoutes from "./routes/application.route.js";  // ✅ Import Application Routes
 import certificatesRoutes from "./routes/certificates.route.js";
+import recruiterRoutes from "./routes/admin.route.js";
 // Load environment variables
 dotenv.config();
 
@@ -74,6 +75,7 @@ app.use("/api/education", educationRoutes);
 app.use("/api/profile", profileRoutes); 
 app.use("/api/applications", applicationRoutes);
 app.use("/api/certificates", certificatesRoutes);
+app.use("/api/recruiters",recruiterRoutes)
 // ✅ Root Route
 app.get("/", (req, res) => {
   res.send("Welcome to the Job Portal API 🚀");

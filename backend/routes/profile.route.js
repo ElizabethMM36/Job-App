@@ -1,13 +1,14 @@
 import express from "express";
 import { getProfile, updateProfile } from "../controllers/profile.controller.js";
-import authenticate from "../middlewares/isAuthenticated.js"; 
+
+import authorize from "../middlewares/authorize.js";
 
 const router = express.Router();
 
 // ✅ **Get User Profile** (GET /api/profile/:email)
-router.get("/", authenticate, getProfile);
+router.get("/", authorize(["jobseeker","recruiter","admin"]), getProfile);
 // ✅ **Update User Profile** (PUT /api/profile/update)
-router.put("/update", authenticate, async (req, res, next) => {
+router.put("/update", authorize(["jobseeker","recruiter","admin"]), async (req, res, next) => {
     try {
         await updateProfile(req, res);
     } catch (error) {

@@ -12,7 +12,6 @@ if (!JWT_SECRET) {
 
 const isAuthenticated = async (req, res, next) => {
   try {
-    // ✅ Get token from cookies or Authorization header
     let token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
 
     if (!token) {
@@ -27,37 +26,22 @@ const isAuthenticated = async (req, res, next) => {
       return res.status(401).json({ message: msg, success: false });
     }
 
-    const { userId, role } = decoded;
+    const { userId, role, status } = decoded;
 
     if (!userId || !role) {
       return res.status(401).json({ message: "Invalid token payload", success: false });
     }
 
-    if (role === "recruiter") {
-      // Recruiters don't have applicant_id
-      req.user = { id: userId, role };
-      return next();
+    req.user = {
+      id: userId,    // always use users.user_id
+      role,
+      status
+    };
+
+    // Optional: For jobseekers, you can also attach applicant_id if needed
+    if (role === "jobseeker") {
+      req.user.applicant_id = userId;
     }
-
-    // ✅ Jobseeker: fetch applicant_id
-    // NEW
-const [rows] = await db.execute(
-  "SELECT applicant_id FROM job_applicants WHERE applicant_id = ?",
-  [userId]
-);
-
-
-   
-  if (!rows.length) {
-    return res.status(404).json({ message: "Jobseeker profile not found", success: false });
-  }
-
-  req.user = {
-    id: userId,                    // users table PK
-    applicant_id: rows[0].applicant_id, // job_applicants PK
-    role,
-  };
-
 
     next();
   } catch (err) {

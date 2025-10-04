@@ -6,22 +6,23 @@ export const insertRecruiter = async (
     company_name, company_address, company_email, company_phone, locations, services, hiring_preferences
 ) => {
     try {
-        // Hash the password before storing it
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const query = `
             INSERT INTO recruiters (
-                 recruiter_id,user_id,username, password, contact_name, position, email, phone,
-                company_name, company_address, company_email, company_phone, locations, services, hiring_preferences ,status
-            ) VALUES (?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
+                user_id, password, contact_name, position, email, phone,
+                company_name, company_address, company_email, company_phone,
+                locations, services, hiring_preferences, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const [result] = await pool.query(query, [
-            user_id, username, hashedPassword, contact_name, position, email, phone,
+            user_id, hashedPassword, contact_name, position, email, phone,
             company_name, company_address, company_email, company_phone,
             locations ? JSON.stringify(locations) : null,
             services,
-            hiring_preferences ? JSON.stringify(hiring_preferences) : null
+            hiring_preferences ? JSON.stringify(hiring_preferences) : null,
+            'pending' // default status
         ]);
 
         return result.insertId;
@@ -39,7 +40,11 @@ export const getAllRecruitersFromDB = async () => {
     const [rows] = await pool.query(query);
     return rows;
 };
-
+export const getPendingRecruiters = async (status) => {
+    const query = `SELECT * FROM recruiters WHERE status = 'pending'`;
+    const [rows] = await pool.query(query);
+    return rows;
+};
 export const getRecruiterByIdFromDB = async (id) => {
     const query = `SELECT * FROM recruiters WHERE user_id = ?`;
     const [rows] = await pool.query(query, [id]);
@@ -51,7 +56,12 @@ export const setRecruiterStatus = async (user_id, status) =>{
     return res;
 };
 export const setUserStatus = async (user_id, status) =>{
-    const query = `UPDATE users SET status = ? WHERE id = ?`;
+    const query = `UPDATE users SET status = ? WHERE user_id = ?`;
     const [res] = await pool.query(query,[status,user_id]);
     return res;
 };
+export const updateCompanyStatus = async(user_id,status) =>{
+    const query = `UPDATE companies SET status = ? WHERE userId = ?`;
+    const [res] = await pool.query(query,[status,user_id]);
+    return res;
+}

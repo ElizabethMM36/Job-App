@@ -58,29 +58,4 @@ export const getEducation = async (req, res) => {
     }
 };
 
-// ✅ Upload Certificate Function
-export const uploadCertificate = async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: "No file uploaded" });
-        }
 
-        const applicant_id = req.user.applicant_id; // ✅ Directly use `req.user.applicant_id`
-        const certificateFilePath = req.file.path; // Uploaded file path
-
-        if (!applicant_id) {
-            return res.status(400).json({ success: false, message: "Applicant ID is required" });
-        }
-
-        await db.execute(
-            "UPDATE applicant_education SET certificate_files = ? WHERE applicant_id = ?",
-            [certificateFilePath, applicant_id]
-        );
-
-        return res.status(200).json({ success: true, message: "Certificate uploaded successfully", filePath: certificateFilePath });
-
-    } catch (error) {
-        console.error("❌ Upload Certificate Error:", error);
-        res.status(500).json({ success: false, message: "Server error" });
-    }
-};

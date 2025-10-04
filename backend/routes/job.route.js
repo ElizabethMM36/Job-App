@@ -7,8 +7,8 @@ import {
     getAdminJobs, 
     applyForJob,
     getJobApplications,         // ✅ Ensure it's imported
-    updateApplicationStatus     // ✅ Ensure this is implemented and imported
-} from "../controllers/job.controller.js";
+    updateApplicationStatus,    // ✅ Ensure this is implemented and imported
+getAppliedJobs} from "../controllers/job.controller.js";
 
 const router = express.Router();
 
@@ -20,6 +20,7 @@ router.post("/apply", authorize(["jobseeker"]), applyForJob);          // Authen
 
 // ✅ Recruiter routes
 router.get("/applications",authorize(["recruiter"]), getJobApplications);  // Authentication required to view applications
-router.put("/application/status", authorize(["recruiter"]), updateApplicationStatus);  // Authentication required to update status
+router.put("/application/status", authorize(["recruiter"]), updateApplicationStatus);  // Authentication required to update statusrouter.get("/get", authenticateUser, getAppliedJobs); 
 
+router.get("/appliedJobs", authorize(["jobseeker"]), getAppliedJobs); 
 export default router;
